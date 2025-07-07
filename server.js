@@ -29,7 +29,10 @@ app.use(passport.session());
 
 app.use(
   cors({
-    origin: "https://notes-app-frontend-rho-one.vercel.app",
+    origin: [
+      "http://localhost:5173",
+      "https://notes-app-frontend-rho-one.vercel.app"
+    ],
     methods: "GET,POST,PUT,DELETE",
     credentials: true,
   })
