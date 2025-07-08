@@ -1,43 +1,9 @@
-// Replace import with require
 const nodemailer = require('nodemailer');
 const otpGenerator = require("otp-generator")
 const router = require("express").Router();
 const passportLib = require("passport")
 const pool = require("../entities/db");
 const jwt = require('jsonwebtoken');
-
-router.get("/login/success", (req, res) => {
-    if (req.user) {
-        res.status(200).json({
-            error: false,
-            message: "Successfully logged in",
-            user: req.user
-        })
-    } else {
-        res.status(403).json({ error: true, message: "Not Authorized" })
-    }
-})
-
-router.get("/login/failed", (req, res) => (
-    res.status(401).json({
-        error: true,
-        message: "Failed to login"
-    })
-))
-router.get(
-    "/google/callback",
-    passportLib.authenticate("google", {
-        successRedirect: process.env.CLIENT_URL,
-        failureRedirect: "/login/failed",
-    })
-)
-
-router.get("/google", passportLib.authenticate("google", ["profile", "email"]));
-
-router.get("/logout", (req, res) => {
-    req.logOut();
-    res.redirect(process.env.CLIENT_URL);
-});
 
 router.post('/getOtp', async (req, res) => {
     const { email } = req.body;
@@ -94,29 +60,6 @@ router.post('/getOtp', async (req, res) => {
     }
 
 })
-
-router.post('/sign-up', async (req, res) => {
-    const { email, name, date } = req.body;
-    try {
-        const findUserWithEmail = await pool.query(
-            'SELECT * FROM users WHERE email = $1',
-            [email]
-        );
-
-        if (findUserWithEmail.rows.length > 0) {
-            res.status(401).json({ error: 'User with this id is already exist' });
-        }
-        const query = 'INSERT INTO users (email, name, date) VALUES ($1, $2, $3) RETURNING *';
-        const values = [email, name, date];
-        const result = await pool.query(query, values);
-
-        res.status(201).json({ message: 'User saved', user: result.rows[0] });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Database error' });
-    }
-})
-
 router.post('/sign-in', async (req, res) => {
     const { email } = req.body;
 
@@ -138,11 +81,51 @@ router.post('/sign-in', async (req, res) => {
 
             res.status(200).json({ message: 'User found', token });
         } else {
-            res.status(404).json({ error: 'User not found' });
+            res.status(404).json({ message: 'User not found! Sign-up instead' });
         }
     } catch (error) {
         console.error('Database error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+router.post('/sign-up', async (req, res) => {
+    const { email, name, date } = req.body;
+    try {
+        const findUserWithEmail = await pool.query(
+            'SELECT * FROM users WHERE email = $1',
+            [email]
+        );
+
+        if (findUserWithEmail.rows.length > 0) {
+            res.status(401).json({success:false, message: 'User with this id is already exist' });
+        }
+        const query = 'INSERT INTO users (email, name, date) VALUES ($1, $2, $3) RETURNING *';
+        const values = [email, name, date];
+        const result = await pool.query(query, values);
+
+        res.status(201).json({ message: 'User saved', user: result.rows[0] });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Database error' });
+    }
+})
+
+router.post('/check-user', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found!' });
+        }
+
+        res.status(200).json({ message: 'User exists' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
+
 module.exports = router;
